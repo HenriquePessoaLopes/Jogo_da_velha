@@ -26,14 +26,20 @@ class _TicTacToePageState extends State<TictactoePage> {
   static const maxSeconds = 30;
   int seconds = maxSeconds;
   Timer? timer;
+  
+  bool gameStarted = false;
 
   void startTimer(){
+  
+    timer?.cancel();
+    seconds = maxSeconds;
     timer = Timer.periodic(const Duration(seconds: 1), (_) {
       setState(() {
         if(seconds > 0) {
           seconds--;
         } else {
           stopTimer();
+          _resetWaitingForStart(); 
         }
       });
     });
@@ -106,7 +112,7 @@ class _TicTacToePageState extends State<TictactoePage> {
               itemBuilder: (BuildContext context, int index) {
                 return GestureDetector(
                   onTap: () {
-                    // _tapped(index);
+                    _tapped(index); 
                   },
                   child: Container(
                     decoration: BoxDecoration(
@@ -144,7 +150,8 @@ class _TicTacToePageState extends State<TictactoePage> {
                   Text(
                     resultDeclaration, style: customFontWhite),
                     const SizedBox(height: 10,),
-                    // _buildTimer()
+                    if (winnerFound) _buildTimer(),
+                    if (!winnerFound && !gameStarted) _buildStartButton(),
                 ],
               ),
             ) 
@@ -154,5 +161,99 @@ class _TicTacToePageState extends State<TictactoePage> {
       ),
    );
   }
-  
+
+
+
+  void _tapped(int index) {
+    if (!gameStarted || winnerFound) return;
+    if (displayXO[index].isNotEmpty) return;
+
+    setState(() {
+      displayXO[index] = oTurn ? '0' : 'X';
+      filledBoxes++;
+      attempts++;
+      _checkWinner();
+      if (!winnerFound) {
+        oTurn = !oTurn;
+        resultDeclaration = oTurn ? 'Vez do Player 0' : 'Vez do Player X';
+      }
+    });
+  }
+
+  void _checkWinner() {
+    const win = [
+      [0,1,2],[3,4,5],[6,7,8],
+      [0,3,6],[1,4,7],[2,5,8],
+      [0,4,8],[2,4,6],
+    ];
+
+    for (final p in win) {
+      final a=p[0], b=p[1], c=p[2];
+      final s1=displayXO[a], s2=displayXO[b], s3=displayXO[c];
+      if (s1.isNotEmpty && s1==s2 && s2==s3) {
+        matchedIndexes = [a,b,c];
+        winnerFound = true;
+        if (s1=='0') {
+          oScore++;
+          resultDeclaration = 'Player 0 venceu!';
+        } else {
+          xScore++;
+          resultDeclaration = 'Player X venceu!';
+        }
+        gameStarted = false;
+        startTimer(); 
+        return;
+      }
+    }
+
+    if (filledBoxes == 9 && !winnerFound) {
+      winnerFound = true;
+      resultDeclaration = 'Empate!';
+      gameStarted = false;
+      startTimer();
+    }
+  }
+
+  Widget _buildStartButton() {
+    return ElevatedButton(
+      onPressed: () {
+        setState(() {
+          _clearBoard();
+          winnerFound = false;
+          gameStarted = true;
+          oTurn = true; 
+          resultDeclaration = 'PLAYER 0 VS PLAYER X';
+          stopTimer(); 
+        });
+      },
+      child: const Text('Start'),
+    );
+  }
+
+  Widget _buildTimer() {
+    
+    return Column(
+      children: [
+        Text('Reinício em: $seconds s', style: customFontWhite),
+        const SizedBox(height: 4),
+        
+      ],
+    );
+  }
+
+  void _clearBoard() {
+    displayXO = ['', '', '', '', '', '', '', '', ''];
+    matchedIndexes = [];
+    filledBoxes = 0;
+  }
+
+  void _resetWaitingForStart() {
+    setState(() {
+      _clearBoard();
+      winnerFound = false;
+      gameStarted = false; 
+      oTurn = true;
+      resultDeclaration = '';
+    });
+  }
 }
