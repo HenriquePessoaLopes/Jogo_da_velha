@@ -109,6 +109,7 @@ class _TicTacToePageState extends State<TictactoePage> {
             flex: 3,
             child: GridView.builder(
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3), 
+              itemCount: 9,
               itemBuilder: (BuildContext context, int index) {
                 return GestureDetector(
                   onTap: () {
