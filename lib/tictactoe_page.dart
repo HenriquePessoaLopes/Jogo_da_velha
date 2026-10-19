@@ -1,9 +1,12 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/jogo/jogo_da_velha.dart';
+import 'package:flutter_application_1/jogo/partida.dart';
 import 'package:flutter_application_1/main_color.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_application_1/widgets/placar.dart';
+import 'package:flutter_application_1/widgets/tabuleiro.dart';
 
+/// A tela do jogo. Em pé: placar, tabuleiro e botões, de cima para baixo.
+/// Deitada ou em janela larga: tabuleiro de um lado e placar e botões do outro.
 class TictactoePage extends StatefulWidget {
   const TictactoePage({super.key});
 
@@ -12,249 +15,157 @@ class TictactoePage extends StatefulWidget {
 }
 
 class _TicTacToePageState extends State<TictactoePage> {
-  bool oTurn = true;
-  List<String> displayXO = ['', '', '', '', '', '', '', '', ''];
-  List<int> matchedIndexes = [];
-  int attempts = 0;
+  final Partida _partida = Partida();
 
-  int oScore = 0;
-  int xScore = 0;
-  int filledBoxes = 0;
-  String resultDeclaration = '';
-  bool winnerFound = false;
+  void _jogar(int indice) => setState(() => _partida.jogar(indice));
 
-  static const maxSeconds = 30;
-  int seconds = maxSeconds;
-  Timer? timer;
-  
-  bool gameStarted = false;
+  void _novaRodada() => setState(_partida.novaRodada);
 
-  void startTimer(){
-  
-    timer?.cancel();
-    seconds = maxSeconds;
-    timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      setState(() {
-        if(seconds > 0) {
-          seconds--;
-        } else {
-          stopTimer();
-          _resetWaitingForStart(); 
-        }
-      });
-    });
+  void _zerarPlacar() => setState(_partida.zerarPlacar);
+
+  String get _mensagem {
+    final rodada = _partida.rodada;
+    return switch (rodada.situacao) {
+      Situacao.emAndamento => 'Vez do jogador ${rodada.vez.simbolo}',
+      Situacao.vitoria => 'Jogador ${rodada.vencedor!.simbolo} venceu!',
+      Situacao.empate => 'Empate!',
+    };
   }
 
-  void stopTimer() {
-    resetTimer();
-    timer?.cancel();
-  }
-
-  void resetTimer() => seconds = maxSeconds;
-
-  static var customFontWhite = GoogleFonts.coiny(
-    textStyle: const TextStyle(
-      color: Colors.white,
-      letterSpacing: 3,
-      fontSize: 28,
-    )
-  );
-  
   @override
   Widget build(BuildContext context) {
-   return Scaffold(
-    backgroundColor: MainColor.primaryColor,
-    body: Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          Expanded(
-            flex: 1,
-            child: Container(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Text(
-                        'Player 0',
-                        style: customFontWhite,
-                      ),
-                      Text(
-                        oScore.toString(),
-                        style: customFontWhite,
-                      )
-                    ],
-                  ),
-                  const SizedBox(width: 20,),
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Text(
-                        'Player X',
-                        style: customFontWhite,
-                      ),
-                      Text(
-                        xScore.toString(),
-                        style: customFontWhite,
-                      )
-                    ],
-                  )
-                ],
-              ),
-            ) 
-          ),
-          Expanded(
-            flex: 3,
-            child: GridView.builder(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3), 
-              itemCount: 9,
-              itemBuilder: (BuildContext context, int index) {
-                return GestureDetector(
-                  onTap: () {
-                    _tapped(index); 
-                  },
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(15),
-                      border: Border.all(
-                        width: 5,
-                        color: MainColor.primaryColor,
-                      ),
-                      color: matchedIndexes.contains(index)
-                      ? MainColor.accentColor
-                      : MainColor.secondaryColor
-                    ),
-                    child: Center(
-                      child: Text(
-                        displayXO[index],
-                        style: GoogleFonts.coiny(textStyle: TextStyle(
-                          fontSize: 64,
-                          color: matchedIndexes.contains(index) 
-                          ? MainColor.secondaryColor
-                          : MainColor.primaryColor
-                        )),
-                      ),
-                    ),
-                  ),
-                );
-              }
-              )
-          ),
-          Expanded(
-            flex: 2,
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    resultDeclaration, style: customFontWhite),
-                    const SizedBox(height: 10,),
-                    if (winnerFound) _buildTimer(),
-                    if (!winnerFound && !gameStarted) _buildStartButton(),
-                ],
-              ),
-            ) 
-            )
-        ],
+    return Scaffold(
+      backgroundColor: MainColor.primaryColor,
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, restricoes) {
+            final deitado =
+                restricoes.maxWidth >= 640 &&
+                restricoes.maxWidth > restricoes.maxHeight * 1.1;
+            return Padding(
+              padding: const EdgeInsets.all(20),
+              child: deitado ? _layoutDeitado() : _layoutEmPe(),
+            );
+          },
+        ),
       ),
-      ),
-   );
-  }
-
-
-
-  void _tapped(int index) {
-    if (!gameStarted || winnerFound) return;
-    if (displayXO[index].isNotEmpty) return;
-
-    setState(() {
-      displayXO[index] = oTurn ? '0' : 'X';
-      filledBoxes++;
-      attempts++;
-      _checkWinner();
-      if (!winnerFound) {
-        oTurn = !oTurn;
-        resultDeclaration = oTurn ? 'Vez do Player 0' : 'Vez do Player X';
-      }
-    });
-  }
-
-  void _checkWinner() {
-    const win = [
-      [0,1,2],[3,4,5],[6,7,8],
-      [0,3,6],[1,4,7],[2,5,8],
-      [0,4,8],[2,4,6],
-    ];
-
-    for (final p in win) {
-      final a=p[0], b=p[1], c=p[2];
-      final s1=displayXO[a], s2=displayXO[b], s3=displayXO[c];
-      if (s1.isNotEmpty && s1==s2 && s2==s3) {
-        matchedIndexes = [a,b,c];
-        winnerFound = true;
-        if (s1=='0') {
-          oScore++;
-          resultDeclaration = 'Player 0 venceu!';
-        } else {
-          xScore++;
-          resultDeclaration = 'Player X venceu!';
-        }
-        gameStarted = false;
-        startTimer(); 
-        return;
-      }
-    }
-
-    if (filledBoxes == 9 && !winnerFound) {
-      winnerFound = true;
-      resultDeclaration = 'Empate!';
-      gameStarted = false;
-      startTimer();
-    }
-  }
-
-  Widget _buildStartButton() {
-    return ElevatedButton(
-      onPressed: () {
-        setState(() {
-          _clearBoard();
-          winnerFound = false;
-          gameStarted = true;
-          oTurn = true; 
-          resultDeclaration = 'PLAYER 0 VS PLAYER X';
-          stopTimer(); 
-        });
-      },
-      child: const Text('Start'),
     );
   }
 
-  Widget _buildTimer() {
-    
-    return Column(
+  Widget _tabuleiro() => ConstrainedBox(
+    constraints: const BoxConstraints(maxWidth: 520),
+    child: Tabuleiro(rodada: _partida.rodada, aoJogar: _jogar),
+  );
+
+  Widget _layoutEmPe() {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: Column(
+          spacing: 16,
+          children: [
+            Placar(partida: _partida),
+            Expanded(child: Center(child: _tabuleiro())),
+            _mensagemEBotoes(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _layoutDeitado() {
+    return Row(
+      spacing: 24,
       children: [
-        Text('Reinício em: $seconds s', style: customFontWhite),
-        const SizedBox(height: 4),
-        
+        Expanded(child: Center(child: _tabuleiro())),
+        SizedBox(
+          width: 340,
+          child: Center(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                spacing: 24,
+                children: [Placar(partida: _partida), _mensagemEBotoes()],
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
 
-  void _clearBoard() {
-    displayXO = ['', '', '', '', '', '', '', '', ''];
-    matchedIndexes = [];
-    filledBoxes = 0;
-  }
+  Widget _mensagemEBotoes() {
+    final terminou = _partida.rodada.terminou;
 
-  void _resetWaitingForStart() {
-    setState(() {
-      _clearBoard();
-      winnerFound = false;
-      gameStarted = false; 
-      oTurn = true;
-      resultDeclaration = '';
-    });
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      spacing: 12,
+      children: [
+        Semantics(
+          liveRegion: true,
+          child: Text(
+            _mensagem,
+            key: const Key('mensagem'),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: MainColor.secondaryColor,
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            key: const Key('jogar-de-novo'),
+            onPressed: _novaRodada,
+            style: FilledButton.styleFrom(
+              backgroundColor: MainColor.secondaryColor,
+              foregroundColor: MainColor.primaryColor,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              textStyle: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              // Depois do fim da rodada o botão ganha destaque (sombra), pois é a próxima ação.
+              elevation: terminou ? 6 : 0,
+            ),
+            child: Text(terminou ? 'Jogar de novo' : 'Reiniciar rodada'),
+          ),
+        ),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton(
+            key: const Key('zerar-placar'),
+            onPressed: _partida.temPlacar ? _zerarPlacar : null,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: MainColor.secondaryColor,
+              disabledForegroundColor: MainColor.secondaryColor.withValues(
+                alpha: 0.4,
+              ),
+              side: BorderSide(
+                color: MainColor.secondaryColor.withValues(
+                  alpha: _partida.temPlacar ? 0.9 : 0.3,
+                ),
+                width: 2,
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              textStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: const Text('Zerar placar'),
+          ),
+        ),
+      ],
+    );
   }
 }
